@@ -1,0 +1,35 @@
+# VISinger2
+
+This repository is the official PyTorch implementation of [VISinger2](https://arxiv.org/abs/2211.02903).
+
+## Pre-requisites
+1. Install python requirements: pip install -r requirements.txt
+2. Download the [Opencpop Dataset](https://wenet.org.cn/opencpop/).
+3. Prepare data like data/opencpop (wavs, trainset.txt, testset.txt, train.list, test.list)
+
+## extract pitch and mel
+```
+cd egs/visinger2
+bash bash/preprocess.sh config.json
+```
+
+## Training
+```
+cd egs/visinger2
+bash bash/train.sh 0
+```
+We trained the model for 500k steps with batch size of 16.
+
+## Inference
+modify the model_dir, input_dir, output_dir in inference.sh
+```
+cd egs/visinger2
+bash bash/inference.sh
+```
+
+Some audio samples can be found in [demo website](https://zhangyongmao.github.io/VISinger2/).
+
+## Acknowledgements
+We referred to [VITS](https://github.com/jaywalnut310/vits), [HiFiGAN](https://github.com/jik876/hifi-gan), [gst-tacotron](https://github.com/syang1993/gst-tacotron)
+and [ddsp_pytorch](https://github.com/acids-ircam/ddsp_pytorch) to implement this.
+
