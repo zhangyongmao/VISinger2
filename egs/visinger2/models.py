@@ -903,8 +903,9 @@ class SynthesizerTrn(nn.Module):
     
     self.f0_prenet = nn.Conv1d(1, hps.model.prior_hidden_channels + 2, 3, padding=1)
     self.energy_prenet = nn.Conv1d(1, hps.model.prior_hidden_channels + 2, 3, padding=1)
-    self.mel_prenet = nn.Conv1d(hps.data.acoustic_dim, hps.model.prior_hidden_channels + 2, 3, padding=1)
-    
+    self.mel_prenet = nn.Conv1d(hps.data.acoustic_dim, hps.model.prior_hidden_channels + 2, 3, padding=1)    
+    self.sin_prenet = nn.Conv1d(1, hps.model.n_harmonic + 2, 3, padding=1)
+
     if hps.data.n_speakers > 1:
         self.emb_spk = nn.Embedding( hps.data.n_speakers, hps.model.spk_channels)
 
@@ -971,14 +972,15 @@ class SynthesizerTrn(nn.Module):
     # dsp waveform
     dsp_o = torch.cat([harm_x, noise_x], axis=1)
 
-    decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)
+    #decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)    
+    decoder_condition = self.sin_prenet(sin)
 
     # dsp based HiFiGAN vocoder
     x_slice, ids_slice = commons.rand_slice_segments(p_z, bn_lengths, self.hps.train.segment_size // self.hps.data.hop_size)
     F0_slice = commons.slice_segments(F0, ids_slice, self.hps.train.segment_size // self.hps.data.hop_size)
     dsp_slice = commons.slice_segments(dsp_o, ids_slice * self.hps.data.hop_size, self.hps.train.segment_size)
     condition_slice = commons.slice_segments(decoder_condition, ids_slice * self.hps.data.hop_size, self.hps.train.segment_size)
-    o = self.dec(x_slice, condition_slice.detach())
+    o = self.dec(x_slice, condition_slice)
 
     return o, ids_slice, predict_dur, predict_lf0, LF0 * predict_bn_mask, dsp_slice.sum(1), loss_kl, predict_mel, predict_bn_mask
 
@@ -1040,7 +1042,8 @@ class SynthesizerTrn(nn.Module):
     omega = torch.cumsum(2 * math.pi * pitch / self.hps.data.sample_rate, 1)
     sin = torch.sin(omega).transpose(1, 2)
 
-    decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)
+    #decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)
+    decoder_condition = self.sin_prenet(sin)
 
     # dsp based HiFiGAN vocoder
     o = self.dec(prior_z, decoder_condition)

@@ -2,10 +2,15 @@
 
 This repository is the official PyTorch implementation of [VISinger2](https://arxiv.org/abs/2211.02903).
 
+### Updates
+- Jan 31 2023: Modify the extraction method of gt-dur in dataset.py. Replace the dsp-wav with a sinusoidal signal as input to the HiFi-GAN decoder.
+- Jan 10 2023: Init commit.
+
 ## Pre-requisites
 1. Install python requirements: pip install -r requirements.txt
-2. Download the [Opencpop Dataset](https://wenet.org.cn/opencpop/).
-3. Prepare data like data/opencpop (wavs, trainset.txt, testset.txt, train.list, test.list)
+2. Download the Opencpop Dataset (https://wenet.org.cn/opencpop/).
+3. prepare data like data/opencpop (wavs, trainset.txt, testset.txt, train.list, test.list)
+4. modify the egs/visinger2/config.json (data/data_dir, train/save_dir)
 
 ## extract pitch and mel
 ```

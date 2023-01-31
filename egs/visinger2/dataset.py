@@ -135,8 +135,12 @@ class SingDataset(BaseDataset):
         durs = np.asarray(durs, dtype=np.float32)
         slurs = np.asarray(slurs, dtype=np.int32)
         gtdurs = np.asarray(gtdurs, dtype=np.float32)
-        gtdurs = np.ceil(gtdurs / (self.hps.data.hop_size / self.hps.data.sample_rate))
-        
+
+        #gtdurs = np.ceil(gtdurs / (self.hps.data.hop_size / self.hps.data.sample_rate))
+        acc_duration = np.ceil(np.cumsum(gtdurs) / (self.hps.data.hop_size / self.hps.data.sample_rate))
+        acc_duration = np.append(0, acc_duration)
+        gtdurs = np.diff(acc_duration)
+
         phos = torch.LongTensor(phos)
         pitchs = torch.LongTensor(pitchs)
         durs = torch.FloatTensor(durs)
