@@ -34,7 +34,7 @@ bash bash/inference.sh
 
 Some audio samples can be found in [demo website](https://zhangyongmao.github.io/VISinger2/).
 
-The pre-trained model trained using opencpop is [here](https://drive.google.com/file/d/1MgXLQuquPT2qu1__JNF010-tg48N0hZn/view?usp=share_link), and the result of the test set synthesized by this pre-trained model is [here](https://drive.google.com/file/d/1JTMhtkexo5z3q0bpLoqh4EJmx1HjZyMr/view?usp=share_link).
+The pre-trained model trained using opencpop is [here](https://drive.google.com/file/d/1MgXLQuquPT2qu1__JNF010-tg48N0hZn/view?usp=share_link), the config.json is [here](https://drive.google.com/file/d/10GI9OUtE4fQ8om8MvycDYQpcP6lgHLNZ/view?usp=share_link), and the result of the test set synthesized by this pre-trained model is [here](https://drive.google.com/file/d/1JTMhtkexo5z3q0bpLoqh4EJmx1HjZyMr/view?usp=share_link).
 
 ## Acknowledgements
 We referred to [VITS](https://github.com/jaywalnut310/vits), [HiFiGAN](https://github.com/jik876/hifi-gan), [gst-tacotron](https://github.com/syang1993/gst-tacotron)
