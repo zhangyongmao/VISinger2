@@ -3,6 +3,7 @@
 This repository is the official PyTorch implementation of [VISinger2](https://arxiv.org/abs/2211.02903).
 
 ### Updates
+- Apr 10 2023: Add egs/visinger2_flow: add flow to VISinger2 to get a more flexible prior distribution.
 - Jan 31 2023: Modify the extraction method of gt-dur in dataset.py. Replace the dsp-wav with a sinusoidal signal as input to the HiFi-GAN decoder.
 - Jan 10 2023: Init commit.
 
@@ -38,5 +39,5 @@ The pre-trained model trained using opencpop is [here](https://drive.google.com/
 
 ## Acknowledgements
 We referred to [VITS](https://github.com/jaywalnut310/vits), [HiFiGAN](https://github.com/jik876/hifi-gan), [gst-tacotron](https://github.com/syang1993/gst-tacotron)
-and [ddsp_pytorch](https://github.com/acids-ircam/ddsp_pytorch) to implement this.
+and [ddsp_pytorch](https://github.com/acids-ircam/ddsp_pytorch) to implement this. Thanks to [swagger-coder](https://github.com/swagger-coder) for help building visinger2_flow.
 
