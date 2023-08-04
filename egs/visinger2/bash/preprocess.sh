@@ -10,6 +10,6 @@ export PYTHONIOENCODING=UTF-8
 cd ${base_dir}
 
 echo "prepare mel pitch "
-python "${base_dir}"/preprocess/preprocess.py --config=${exp_dir}/${config}
+python3 "${base_dir}"/preprocess/preprocess.py --config=${exp_dir}/${config}
 
 

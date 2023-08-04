@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import IPython.display as ipd
+#import IPython.display as ipd
 
 import sys
 import os
@@ -95,6 +95,7 @@ def inference_label2wav(net_g, label_list_path, output_dir, hps, cuda_id=None):
 
             # infer
             o, _, _ = net_g.infer(pho, pho_lengths, pitchid, dur, slur)
+
             audio = o[0,0].data.cpu().float().numpy()
             audio = audio * 32768 #hps.data.max_wav_value
             audio = audio.astype(np.int16)
@@ -119,5 +120,5 @@ if __name__ == "__main__":
         os.makedirs(output_dir)
     print("load model end!")
 
-    inference_label2wav(model, input_dir, output_dir, hps, cuda_id=0)
+    inference_label2wav(model, input_dir, output_dir, hps, cuda_id=None)
 

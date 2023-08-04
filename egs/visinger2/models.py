@@ -594,6 +594,9 @@ class Generator_Noise(torch.nn.Module):
         real = amp * torch.cos(phase)
         imag = amp * torch.sin(phase)
         spec = torch.cat([real, imag], 3)
+
+        spec = torch.view_as_complex(spec)
+
         istft_x = torch.istft(spec, self.fft_size, self.hop_size, self.win_size, self.window.to(amp), True, length=x.shape[2] * self.hop_size, return_complex=False)
     
         return istft_x.unsqueeze(1)
@@ -990,12 +993,30 @@ class SynthesizerTrn(nn.Module):
       g = self.emb_spk(spk_id).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-    
+
     # Encoder
-    x, x_mask, dur_input, x_pitch = self.text_encoder(phone, phone_lengths, pitchid, dur, slur)
+    onnx_mode = True
+    import ailia
+    import numpy as np
+    if onnx_mode:
+      net = ailia.Net(weight = "text_encoder.onnx")
+      x, x_mask, dur_input, x_pitch = net.run([phone.numpy(), phone_lengths.numpy(), pitchid.numpy(), dur.numpy(), slur.numpy()])
+      x = torch.from_numpy(x.astype(np.float32))
+      x_mask = torch.from_numpy(x_mask.astype(np.float32))
+      dur_input = torch.from_numpy(dur_input.astype(np.float32))
+      x_pitch = torch.from_numpy(x_pitch.astype(np.float32))
+    else:
+      x, x_mask, dur_input, x_pitch = self.text_encoder(phone, phone_lengths, pitchid, dur, slur)
+      torch.onnx.export(self.text_encoder, (phone, phone_lengths, pitchid, dur, slur), "text_encoder.onnx", verbose=True)
     
     # dur
-    predict_dur = self.duration_predictor(dur_input, x_mask, spk_emb=g)
+    if onnx_mode:
+       net = ailia.Net(weight = "duration_predictor.onnx")
+       predict_dur = net.run([dur_input.numpy(), x_mask.numpy()])[0] # g is none
+       predict_dur = torch.from_numpy(predict_dur.astype(np.float32))
+    else:
+      predict_dur = self.duration_predictor(dur_input, x_mask, spk_emb=g)
+      torch.onnx.export(self.duration_predictor, (dur_input, x_mask, g), "duration_predictor.onnx", verbose=True)
     predict_dur = (torch.exp(predict_dur) - 1) * x_mask
     predict_dur = predict_dur * self.hps.data.sample_rate / self.hps.data.hop_size
 
@@ -1010,8 +1031,22 @@ class SynthesizerTrn(nn.Module):
     decoder_input_pitch, mel_len = self.LR(x_pitch, predict_dur, None)
     
     # aam
-    predict_lf0, predict_bn_mask = self.f0_decoder(decoder_input + decoder_input_pitch, y_lengths, spk_emb=g)
-    predict_mel, predict_bn_mask = self.mel_decoder(decoder_input + self.f0_prenet(predict_lf0), y_lengths, spk_emb=g)
+    if onnx_mode:
+      net = ailia.Net(weight = "f0_decoder.onnx")
+      predict_lf0, predict_bn_mask = net.run([(decoder_input + decoder_input_pitch).numpy(), y_lengths.numpy()]) # g is none
+      predict_lf0 = torch.from_numpy(predict_lf0.astype(np.float32))
+      predict_bn_mask = torch.from_numpy(predict_bn_mask.astype(np.float32))
+
+      net = ailia.Net(weight = "mel_decoder.onnx")
+      predict_mel, predict_bn_mask = net.run([(decoder_input + self.f0_prenet(predict_lf0)).numpy(), y_lengths.numpy()])
+      predict_mel = torch.from_numpy(predict_mel.astype(np.float32))
+      predict_bn_mask = torch.from_numpy(predict_bn_mask.astype(np.float32))
+    else:
+      predict_lf0, predict_bn_mask = self.f0_decoder(decoder_input + decoder_input_pitch, y_lengths, spk_emb=g)
+      predict_mel, predict_bn_mask = self.mel_decoder(decoder_input + self.f0_prenet(predict_lf0), y_lengths, spk_emb=g)
+
+      torch.onnx.export(self.f0_decoder, (decoder_input + decoder_input_pitch, y_lengths, g), "f0_decoder.onnx", verbose=True)
+      torch.onnx.export(self.mel_decoder, (decoder_input + self.f0_prenet(predict_lf0), y_lengths, g), "mel_decoder.onnx", verbose=True)
 
     predict_lf0 = torch.max(predict_lf0, torch.zeros_like(predict_lf0).to(predict_lf0))
     predict_energy = predict_mel.sum(1).unsqueeze(1) / self.hps.data.acoustic_dim
@@ -1020,8 +1055,15 @@ class SynthesizerTrn(nn.Module):
                         self.f0_prenet(predict_lf0) + \
                         self.energy_prenet(predict_energy) + \
                         self.mel_prenet(predict_mel)
-    decoder_output, y_mask = self.decoder(decoder_input, y_lengths, spk_emb=g)
- 
+    if onnx_mode:
+      net = ailia.Net(weight = "decoder.onnx")
+      decoder_output, y_mask = net.run([decoder_input.numpy(), y_lengths.numpy()]) # g is none
+      decoder_output = torch.from_numpy(decoder_output.astype(np.float32))
+      y_mask = torch.from_numpy(y_mask.astype(np.float32))
+    else:
+      decoder_output, y_mask = self.decoder(decoder_input, y_lengths, spk_emb=g)
+      torch.onnx.export(self.decoder, (decoder_input, y_lengths, g), "decoder.onnx", verbose=True)
+
     prior_info = decoder_output
     prior_mean = prior_info[:, :self.hps.model.hidden_channels, :]
     prior_std = prior_info[:, self.hps.model.hidden_channels:, :]   
@@ -1030,22 +1072,42 @@ class SynthesizerTrn(nn.Module):
     
     noise_x = self.dec_noise(prior_z, y_mask)
 
+    #torch.onnx.export(self.dec_noise, (prior_z, y_mask), "dec_noise.onnx", verbose=True) # isftf required
+
     F0_std = 500
     F0 = predict_lf0 * F0_std
     F0 = F0 / 2595
     F0 = torch.pow(10, F0)
     F0 = (F0 - 1) * 700.
 
-    harm_x = self.dec_harm(F0, prior_z, y_mask)
+    if onnx_mode:
+      net = ailia.Net(weight = "dec_harm.onnx")
+      harm_x = net.run([F0.numpy(), prior_z.numpy(), y_mask.numpy()])[0]
+      harm_x = torch.from_numpy(harm_x.astype(np.float32))
+    else:
+      harm_x = self.dec_harm(F0, prior_z, y_mask)
+      torch.onnx.export(self.dec_harm, (F0, prior_z, y_mask), "dec_harm.onnx", verbose=True)
     
     pitch = upsample(F0.transpose(1, 2), self.hps.data.hop_size)
     omega = torch.cumsum(2 * math.pi * pitch / self.hps.data.sample_rate, 1)
     sin = torch.sin(omega).transpose(1, 2)
 
     #decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)
-    decoder_condition = self.sin_prenet(sin)
+    if onnx_mode:
+      net = ailia.Net(weight = "sin_prenet.onnx")
+      decoder_condition = net.run([sin.numpy()])[0]
+      decoder_condition = torch.from_numpy(decoder_condition.astype(np.float32))
+    else:
+      decoder_condition = self.sin_prenet(sin)
+      torch.onnx.export(self.sin_prenet, (sin), "sin_prenet.onnx", verbose=True)
 
     # dsp based HiFiGAN vocoder
-    o = self.dec(prior_z, decoder_condition)
+    if onnx_mode:
+      net = ailia.Net(weight = "dec.onnx")
+      o = net.run([prior_z.numpy(),decoder_condition.numpy()])[0]
+      o = torch.from_numpy(o.astype(np.float32))
+    else:
+      o = self.dec(prior_z, decoder_condition)
+      torch.onnx.export(self.dec, (prior_z, decoder_condition), "dec.onnx", verbose=True)
  
     return o, harm_x.sum(1).unsqueeze(1), noise_x
