@@ -1,3 +1,7 @@
+# 修改日期：2023.4.20
+# 修改人：pengfei yue 
+# 修改内容：添加flow以及wavenet模块，支持多发音人
+
 
 import sys
 import copy
