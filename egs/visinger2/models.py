@@ -108,7 +108,7 @@ class TextEncoder(nn.Module):
 
     self.emb_slur = nn.Embedding(len(ttsing_slur_set), 64)
     nn.init.normal_(self.emb_slur.weight, 0.0, 64**-0.5)
-    
+
     self.emb_dur = torch.nn.Linear(1, 64)
 
     self.pre_net = torch.nn.Linear(512, hidden_channels)
@@ -134,10 +134,10 @@ class TextEncoder(nn.Module):
 
     dur_input = self.pre_dur_net(x)
     dur_input = torch.transpose(dur_input, 1, -1)
-     
+
     x = self.pre_net(x)
     x = torch.transpose(x, 1, -1) # [b, h, t]
-    
+
     x_mask = torch.unsqueeze(commons.sequence_mask(phone_lengths, x.size(2)), 1).to(x.dtype)
 
     x = self.encoder(x * x_mask, x_mask)
@@ -199,7 +199,7 @@ class LengthRegulator(nn.Module):
         expand_size = predicted[i].item()
         state_info_index = torch.unsqueeze(torch.arange(0, expand_size), 1).float()
         state_info_length = torch.unsqueeze(torch.Tensor([expand_size] * expand_size), 1).float()
-        state_info = torch.cat([state_info_index, state_info_length], 1).to(vec.device) 
+        state_info = torch.cat([state_info_index, state_info_length], 1).to(vec.device)
         new_vec = vec.expand(max(int(expand_size), 0), -1)
         new_vec = torch.cat([new_vec, state_info], 1)
         out.append(new_vec)
@@ -407,9 +407,9 @@ class Generator_Harm(torch.nn.Module):
     def __init__(self, hps):
         super(Generator_Harm, self).__init__()
         self.hps = hps
-        
+
         self.prenet = Conv1d(hps.model.hidden_channels, hps.model.hidden_channels, 3, padding=1)
-                
+
         self.net = ConvReluNorm(hps.model.hidden_channels,
                                     hps.model.hidden_channels,
                                     hps.model.hidden_channels,
@@ -417,19 +417,19 @@ class Generator_Harm(torch.nn.Module):
                                     8,
                                     hps.model.p_dropout)
 
-        #self.rnn = nn.LSTM(input_size=hps.model.hidden_channels, 
+        #self.rnn = nn.LSTM(input_size=hps.model.hidden_channels,
         #    hidden_size=hps.model.hidden_channels,
-        #    num_layers=1, 
-        #    bias=True, 
-        #    batch_first=True, 
+        #    num_layers=1,
+        #    bias=True,
+        #    batch_first=True,
         #    dropout=0.5,
         #    bidirectional=True)
         self.postnet = Conv1d(hps.model.hidden_channels, hps.model.n_harmonic+1, 3, padding=1)
-    
+
     def forward(self, f0, harm, mask):
         pitch = f0.transpose(1, 2)
         harm = self.prenet(harm)
-        
+
         harm = self.net(harm) * mask
         #harm = harm.transpose(1, 2)
         #harm, (hs, hc) = self.rnn(harm)
@@ -438,7 +438,7 @@ class Generator_Harm(torch.nn.Module):
         harm = self.postnet(harm)
         harm = harm.transpose(1, 2)
         param = harm
-        
+
         param = scale_function(param)
         total_amp = param[..., :1]
         amplitudes = param[..., 1:]
@@ -452,7 +452,7 @@ class Generator_Harm(torch.nn.Module):
 
         amplitudes = upsample(amplitudes, self.hps.data.hop_size)
         pitch = upsample(pitch, self.hps.data.hop_size)
-        
+
         n_harmonic = amplitudes.shape[-1]
         omega = torch.cumsum(2 * math.pi * pitch / self.hps.data.sample_rate, 1)
         omegas = omega * torch.arange(1, n_harmonic + 1).to(omega)
@@ -470,7 +470,7 @@ class Generator(torch.nn.Module):
         self.n_speakers = n_speakers
 
         resblock = modules.ResBlock1 if resblock == '1' else modules.R
-        
+
         self.downs = nn.ModuleList()
         for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
             i = len(upsample_rates) - 1 - i
@@ -480,13 +480,13 @@ class Generator(torch.nn.Module):
             self.downs.append(weight_norm(
                 Conv1d(hps.model.n_harmonic + 2, hps.model.n_harmonic + 2,
                        k, u, padding=k//2)))
-        
+
         self.resblocks_downs = nn.ModuleList()
         for i in range(len(self.downs)):
             j = len(upsample_rates) - 1 - i
             self.resblocks_downs.append(ResBlock3(hps.model.n_harmonic + 2, 3, (1, 3)))
 
-        
+
         self.concat_pre = Conv1d(upsample_initial_channel + hps.model.n_harmonic + 2, upsample_initial_channel, 3, 1, padding=1)
         self.concat_conv = nn.ModuleList()
         for i in range(len(upsample_rates)):
@@ -511,7 +511,7 @@ class Generator(torch.nn.Module):
 
         if self.n_speakers != 0:
             self.cond = nn.Conv1d(spk_channels, upsample_initial_channel, 1)
-            
+
     def forward(self, x, ddsp, g=None):
 
         x = self.conv_pre(x)
@@ -549,11 +549,11 @@ class Generator(torch.nn.Module):
                 else:
                     xs += self.resblocks[i*self.num_kernels+j](x)
             x = xs / self.num_kernels
-            
+
         x = F.leaky_relu(x)
         x = self.conv_post(x)
         x = torch.tanh(x)
-        
+
         return x
 
     def remove_weight_norm(self):
@@ -571,7 +571,7 @@ class Generator_Noise(torch.nn.Module):
         self.hop_size = hps.data.hop_size
         self.fft_size = hps.data.n_fft
         self.istft_pre = Conv1d(hps.model.hidden_channels, hps.model.hidden_channels, 3, padding=1)
-        
+
         self.net = ConvReluNorm(hps.model.hidden_channels,
                                     hps.model.hidden_channels,
                                     hps.model.hidden_channels,
@@ -587,15 +587,15 @@ class Generator_Noise(torch.nn.Module):
         istft_x = self.istft_pre(istft_x)
 
         istft_x = self.net(istft_x) * mask
-        
+
         amp = self.istft_amplitude(istft_x).unsqueeze(-1)
         phase = (torch.rand(amp.shape) * 2 * 3.14 - 3.14).to(amp)
 
         real = amp * torch.cos(phase)
         imag = amp * torch.sin(phase)
-        spec = torch.cat([real, imag], 3)
+        spec = torch.complex(real, imag).squeeze(-1)
         istft_x = torch.istft(spec, self.fft_size, self.hop_size, self.win_size, self.window.to(amp), True, length=x.shape[2] * self.hop_size, return_complex=False)
-    
+
         return istft_x.unsqueeze(1)
 
 class LayerNorm(nn.Module):
@@ -784,14 +784,14 @@ class Discriminator(torch.nn.Module):
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
         discs = discs + [DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods]
         self.discriminators = nn.ModuleList(discs)
-        self.disc_multfrequency = MultiFrequencyDiscriminator(hop_lengths=[int(hps.data.sample_rate * 2.5 / 1000), 
+        self.disc_multfrequency = MultiFrequencyDiscriminator(hop_lengths=[int(hps.data.sample_rate * 2.5 / 1000),
                                                                            int(hps.data.sample_rate * 5 / 1000),
                                                                            int(hps.data.sample_rate * 7.5 / 1000),
                                                                            int(hps.data.sample_rate * 10 / 1000),
                                                                            int(hps.data.sample_rate * 12.5 / 1000),
                                                                            int(hps.data.sample_rate * 15 / 1000)],
                                                               hidden_channels=[256, 256, 256, 256, 256])
-        
+
     def forward(self, y, y_hat):
         y_d_rs = []
         y_d_gs = []
@@ -868,42 +868,42 @@ class SynthesizerTrn(nn.Module):
         n_speakers=hps.data.n_speakers,
         spk_channels=hps.model.spk_channels
         )
-   
+
     self.posterior_encoder = PosteriorEncoder(
         hps,
         hps.data.acoustic_dim,
-        hps.model.hidden_channels, 
+        hps.model.hidden_channels,
         hps.model.hidden_channels, 3, 1, 8)
-    
+
     self.dropout = nn.Dropout(0.2)
-    
+
     self.duration_predictor = DurationPredictor(
-        hps.model.prior_hidden_channels, 
-        hps.model.prior_hidden_channels, 
-        3, 
-        0.5, 
-        n_speakers=hps.data.n_speakers, 
+        hps.model.prior_hidden_channels,
+        hps.model.prior_hidden_channels,
+        3,
+        0.5,
+        n_speakers=hps.data.n_speakers,
         spk_channels=hps.model.spk_channels)
     self.LR = LengthRegulator()
 
     self.dec = Generator(hps,
                          hps.model.hidden_channels,
-                         hps.model.resblock, 
-                         hps.model.resblock_kernel_sizes, 
-                         hps.model.resblock_dilation_sizes, 
-                         hps.model.upsample_rates, 
-                         hps.model.upsample_initial_channel, 
-                         hps.model.upsample_kernel_sizes, 
+                         hps.model.resblock,
+                         hps.model.resblock_kernel_sizes,
+                         hps.model.resblock_dilation_sizes,
+                         hps.model.upsample_rates,
+                         hps.model.upsample_initial_channel,
+                         hps.model.upsample_kernel_sizes,
                          n_speakers=0,
                          spk_channels=hps.model.spk_channels)
-    
+
     self.dec_harm = Generator_Harm(hps)
-    
+
     self.dec_noise = Generator_Noise(hps)
-    
+
     self.f0_prenet = nn.Conv1d(1, hps.model.prior_hidden_channels + 2, 3, padding=1)
     self.energy_prenet = nn.Conv1d(1, hps.model.prior_hidden_channels + 2, 3, padding=1)
-    self.mel_prenet = nn.Conv1d(hps.data.acoustic_dim, hps.model.prior_hidden_channels + 2, 3, padding=1)    
+    self.mel_prenet = nn.Conv1d(hps.data.acoustic_dim, hps.model.prior_hidden_channels + 2, 3, padding=1)
     self.sin_prenet = nn.Conv1d(1, hps.model.n_harmonic + 2, 3, padding=1)
 
     if hps.data.n_speakers > 1:
@@ -914,10 +914,10 @@ class SynthesizerTrn(nn.Module):
       g = self.emb_spk(spk_id).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-    
+
     # Encoder
     x, x_mask, dur_input, x_pitch = self.text_encoder(phone, phone_lengths, pitchid, dur, slur)
-    
+
     # dur
     predict_dur = self.duration_predictor(dur_input, x_mask, spk_emb=g)
     predict_dur = (torch.exp(predict_dur) - 1) * x_mask
@@ -926,10 +926,10 @@ class SynthesizerTrn(nn.Module):
     # LR
     decoder_input, mel_len = self.LR(x, gtdur, None)
     decoder_input_pitch, mel_len = self.LR(x_pitch, gtdur, None)
- 
+
     LF0 = 2595. * torch.log10(1. + F0 / 700.)
     LF0 = LF0 / 500
-   
+
     # aam
     predict_lf0, predict_bn_mask = self.f0_decoder(decoder_input + decoder_input_pitch, bn_lengths, spk_emb=g)
     predict_mel, predict_bn_mask = self.mel_decoder(decoder_input + self.f0_prenet(LF0), bn_lengths, spk_emb=g)
@@ -944,7 +944,7 @@ class SynthesizerTrn(nn.Module):
 
     prior_info = decoder_output
     prior_mean = prior_info[:, :self.hps.model.hidden_channels, :]
-    prior_logstd = prior_info[:, self.hps.model.hidden_channels:, :]   
+    prior_logstd = prior_info[:, self.hps.model.hidden_channels:, :]
     prior_norm = D.Normal(prior_mean, torch.exp(prior_logstd))
     prior_z = prior_norm.rsample()
 
@@ -960,11 +960,11 @@ class SynthesizerTrn(nn.Module):
 
     p_z = posterior_z
     p_z = self.dropout(p_z)
- 
+
     pitch = upsample(F0.transpose(1, 2), self.hps.data.hop_size)
     omega = torch.cumsum(2 * math.pi * pitch / self.hps.data.sample_rate, 1)
     sin = torch.sin(omega).transpose(1, 2)
-    
+
     # dsp synthesize
     noise_x = self.dec_noise(p_z, y_mask)
     harm_x = self.dec_harm(F0, p_z, y_mask)
@@ -972,7 +972,7 @@ class SynthesizerTrn(nn.Module):
     # dsp waveform
     dsp_o = torch.cat([harm_x, noise_x], axis=1)
 
-    #decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)    
+    #decoder_condition = torch.cat([harm_x, noise_x, sin], axis=1)
     decoder_condition = self.sin_prenet(sin)
 
     # dsp based HiFiGAN vocoder
@@ -985,15 +985,15 @@ class SynthesizerTrn(nn.Module):
     return o, ids_slice, predict_dur, predict_lf0, LF0 * predict_bn_mask, dsp_slice.sum(1), loss_kl, predict_mel, predict_bn_mask
 
   def infer(self,  phone, phone_lengths, pitchid, dur, slur, gtdur=None, spk_id=None, length_scale=1.):
-    
+
     if self.hps.data.n_speakers > 0:
       g = self.emb_spk(spk_id).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-    
+
     # Encoder
     x, x_mask, dur_input, x_pitch = self.text_encoder(phone, phone_lengths, pitchid, dur, slur)
-    
+
     # dur
     predict_dur = self.duration_predictor(dur_input, x_mask, spk_emb=g)
     predict_dur = (torch.exp(predict_dur) - 1) * x_mask
@@ -1008,26 +1008,26 @@ class SynthesizerTrn(nn.Module):
     # LR
     decoder_input, mel_len = self.LR(x, predict_dur, None)
     decoder_input_pitch, mel_len = self.LR(x_pitch, predict_dur, None)
-    
+
     # aam
     predict_lf0, predict_bn_mask = self.f0_decoder(decoder_input + decoder_input_pitch, y_lengths, spk_emb=g)
     predict_mel, predict_bn_mask = self.mel_decoder(decoder_input + self.f0_prenet(predict_lf0), y_lengths, spk_emb=g)
 
     predict_lf0 = torch.max(predict_lf0, torch.zeros_like(predict_lf0).to(predict_lf0))
     predict_energy = predict_mel.sum(1).unsqueeze(1) / self.hps.data.acoustic_dim
-    
+
     decoder_input = decoder_input + \
                         self.f0_prenet(predict_lf0) + \
                         self.energy_prenet(predict_energy) + \
                         self.mel_prenet(predict_mel)
     decoder_output, y_mask = self.decoder(decoder_input, y_lengths, spk_emb=g)
- 
+
     prior_info = decoder_output
     prior_mean = prior_info[:, :self.hps.model.hidden_channels, :]
-    prior_std = prior_info[:, self.hps.model.hidden_channels:, :]   
+    prior_std = prior_info[:, self.hps.model.hidden_channels:, :]
     prior_norm = D.Normal(prior_mean, torch.exp(prior_std))
     prior_z = prior_norm.rsample()
-    
+
     noise_x = self.dec_noise(prior_z, y_mask)
 
     F0_std = 500
@@ -1037,7 +1037,7 @@ class SynthesizerTrn(nn.Module):
     F0 = (F0 - 1) * 700.
 
     harm_x = self.dec_harm(F0, prior_z, y_mask)
-    
+
     pitch = upsample(F0.transpose(1, 2), self.hps.data.hop_size)
     omega = torch.cumsum(2 * math.pi * pitch / self.hps.data.sample_rate, 1)
     sin = torch.sin(omega).transpose(1, 2)
@@ -1047,5 +1047,5 @@ class SynthesizerTrn(nn.Module):
 
     # dsp based HiFiGAN vocoder
     o = self.dec(prior_z, decoder_condition)
- 
+
     return o, harm_x.sum(1).unsqueeze(1), noise_x

@@ -376,12 +376,12 @@ class TorchSTFT(torch.nn.Module):
         self.domain = domain
         self.mel_scale = MelScale(n_mels=(fft_size // 2 + 1),
             n_stft=(fft_size // 2 + 1)) if mel_scale else None
-        
+
     def transform(self, x):
-        x_stft = torch.stft(x, self.fft_size, self.hop_size, self.win_size,
-                            self.window.type_as(x), normalized=self.normalized)
-        real = x_stft[..., 0]
-        imag = x_stft[..., 1]
+        x_stft = torch.stft(x, self.fft_size, self.hop_size,  self.win_size,
+                            self.window.type_as(x), normalized=self.normalized, return_complex=True)
+        real = x_stft.real
+        imag = x_stft.imag
         mag = torch.clamp(real ** 2 + imag ** 2, min=1e-7)
         mag = torch.sqrt(mag)
         phase = torch.atan2(imag, real)
